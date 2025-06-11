@@ -2,25 +2,211 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Threads 登入頁復刻</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Threads 登入 - 注意釣魚警語</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      background: #fafafa;
+      display: flex;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+    }
+    .login-container {
+      background: white;
+      padding: 30px 40px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      width: 320px;
+      box-sizing: border-box;
+      position: relative;
+    }
+    h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+      text-align: center;
+    }
+    .warning {
+      background: #ffe6e6;
+      color: #b00020;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #b00020;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #555;
+      font-weight: 600;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      margin-right: 6px;
+    }
+    .btn-login {
+      width: 100%;
+      padding: 10px;
+      background-color: #1877f2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn-login:hover {
+      background-color: #145dbf;
+    }
+    .forgot-link {
+      display: block;
+      margin-top: 10px;
+      text-align: right;
+      font-size: 13px;
+      color: #1877f2;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .forgot-link:hover {
+      color: #145dbf;
+    }
+    .loading-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      font-size: 18px;
+      color: #555;
+      border-radius: 8px;
+      display: none; /* 預設隱藏 */
+    }
+    .spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #1877f2;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg);}
+      100% { transform: rotate(360deg);}
+    }
+    .error-message {
+      color: #b00020;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+  </style>
 </head>
 <body>
-<main class="login-container">
-  <h1 class="logo">
-    <img src="images/threads-logo.png" alt="Threads Logo" class="logo-image" />
-    Threads
-  </h1>
-  <form class="login-form">
-    <input type="text" placeholder="電話號碼、使用者名稱或電子郵件" required />
-    <input type="password" placeholder="密碼" required />
-    <button type="submit">登入</button>
-  </form>
-  <a href="#" class="forgot-password">忘記密碼？</a>
-</main>
-<script src="script.js"></script>
+
+<div class="login-container">
+  <h2>Threads 登入</h2>
+  <div class="warning">
+    ⚠️ 近期釣魚網站猖獗，請勿相信來源不明之網站。
+  </div>
+  <div id="errorMsg" class="error-message"></div>
+
+  <label for="username">帳號</label>
+  <input type="text" id="username" autocomplete="username" />
+
+  <label for="password">密碼</label>
+  <input type="password" id="password" autocomplete="current-password" />
+
+  <div class="checkbox-group">
+    <input type="checkbox" id="remember" />
+    <label for="remember" style="font-weight: normal;">記住帳號</label>
+  </div>
+
+  <button class="btn-login" id="btnLogin">登入</button>
+
+  <span class="forgot-link" id="forgotPassword">忘記密碼？</span>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div>登入中，請稍候...</div>
+  </div>
+</div>
+
+<script>
+  const usernameInput = document.getElementById("username");
+  const passwordInput = document.getElementById("password");
+  const rememberCheckbox = document.getElementById("remember");
+  const btnLogin = document.getElementById("btnLogin");
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  const errorMsg = document.getElementById("errorMsg");
+  const forgotPassword = document.getElementById("forgotPassword");
+
+  // 頁面載入時，如果 localStorage 有帳號，帶入並勾選記住帳號
+  window.addEventListener('DOMContentLoaded', () => {
+    const savedUser = localStorage.getItem('savedUsername');
+    if (savedUser) {
+      usernameInput.value = savedUser;
+      rememberCheckbox.checked = true;
+    }
+  });
+
+  btnLogin.addEventListener('click', () => {
+    errorMsg.textContent = '';
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+
+    // 非空檢查
+    if (!username) {
+      errorMsg.textContent = '請輸入帳號';
+      usernameInput.focus();
+      return;
+    }
+    if (!password) {
+      errorMsg.textContent = '請輸入密碼';
+      passwordInput.focus();
+      return;
+    }
+
+    // 記住帳號
+    if (rememberCheckbox.checked) {
+      localStorage.setItem('savedUsername', username);
+    } else {
+      localStorage.removeItem('savedUsername');
+    }
+
+    // 顯示載入畫面
+    loadingOverlay.style.display = 'flex';
+
+    // 模擬 5 秒登入等待（可用 setTimeout）
+    setTimeout(() => {
+      loadingOverlay.style.display = 'none';
+      alert(`歡迎回來，${username}！\n（請稍後跳轉）`);
+      // 這裡可做登入成功後導頁，這裡示範不跳轉
+    }, 5000);
+  });
+
+  forgotPassword.addEventListener('click', () => {
+    alert("忘記密碼功能未實作。\n僅為擬真。");
+  });
+</script>
+
 </body>
 </html>
-
-//test
